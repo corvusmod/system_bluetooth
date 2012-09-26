@@ -52,11 +52,31 @@ static int init_rfkill() {
     int fd;
     int sz;
     int id;
+#ifdef ALLWINNER
+    for (id = 1; ; id++) {
+#else
     for (id = 0; ; id++) {
+#endif
         snprintf(path, sizeof(path), "/sys/class/rfkill/rfkill%d/type", id);
         fd = open(path, O_RDONLY);
         if (fd < 0) {
             ALOGW("open(%s) failed: %s (%d)\n", path, strerror(errno), errno);
+#ifdef ALLWINNER
+
+close(fd); 
+      if (id > 100)
+        return -1;
+        } else {
+    sz = read(fd, &buf, sizeof(buf));
+    close(fd);
+    if (sz >= 9 && memcmp(buf, "bluetooth", 9) == 0) {
+        rfkill_id = id;
+        break;
+    }
+  }
+
+#else
+
             return -1;
         }
         sz = read(fd, &buf, sizeof(buf));
@@ -67,6 +87,8 @@ static int init_rfkill() {
         }
     }
 
+#endif
+
     asprintf(&rfkill_state_path, "/sys/class/rfkill/rfkill%d/state", rfkill_id);
     return 0;
 }
@@ -76,6 +98,9 @@ static int check_bluetooth_power() {
     int fd = -1;
     int ret = -1;
     char buffer;
+#ifdef ALLWINNER
+    rfkill_id = -1;
+#endif
 
     if (rfkill_id == -1) {
         if (init_rfkill()) goto out;
@@ -113,6 +138,9 @@ static int set_bluetooth_power(int on) {
     int fd = -1;
     int ret = -1;
     const char buffer = (on ? '1' : '0');
+#ifdef ALLWINNER
+    rfkill_id = -1;
+#endif
 
     if (rfkill_id == -1) {
         if (init_rfkill()) goto out;
